@@ -10,9 +10,9 @@ from texts import HELP_TEXT
 import bypasser
 import freewall
 from time import time
+import os
+import requests
 
-
-# bot
 with open('config.json', 'r') as f: DATA = load(f)
 def getenv(var): return environ.get(var) or DATA.get(var, None)
 
@@ -32,80 +32,44 @@ def handleIndex(ele,message,msg):
 
 # loop thread
 def loopthread(message,otherss=False):
-
     urls = []
-    if otherss: texts = message.caption
-    else: texts = message.text
+    if otherss:
+        texts = message.caption
+    else:
+        texts = message.text
 
-    if texts in [None,""]: return
+    if texts in [None,""]:
+        return
+    
     for ele in texts.split():
         if "http://" in ele or "https://" in ele:
             urls.append(ele)
-    if len(urls) == 0: return
-
-    if bypasser.ispresent(bypasser.ddl.ddllist,urls[0]):
-        msg = app.send_message(message.chat.id, "⚡ __generating...__", reply_to_message_id=message.id)
-    elif freewall.pass_paywall(urls[0], check=True):
-        msg = app.send_message(message.chat.id, "🕴️ __jumping the wall...__", reply_to_message_id=message.id)
-    else:
-        if "https://olamovies" in urls[0] or "https://psa.wf/" in urls[0]:
-            msg = app.send_message(message.chat.id, "⏳ __this might take some time...__", reply_to_message_id=message.id)
-        else:
-            msg = app.send_message(message.chat.id, "🔎 __bypassing...__", reply_to_message_id=message.id)
-
-    strt = time()
-    links = ""
-    temp = None
-    for ele in urls:
-        if search(r"https?:\/\/(?:[\w.-]+)?\.\w+\/\d+:", ele):
-            handleIndex(ele,message,msg)
-            return
-        elif bypasser.ispresent(bypasser.ddl.ddllist,ele):
-            try: temp = bypasser.ddl.direct_link_generator(ele)
-            except Exception as e: temp = "**Error**: " + str(e)
-        elif freewall.pass_paywall(ele, check=True):
-            freefile = freewall.pass_paywall(ele)
-            if freefile:
-                try: 
-                    app.send_document(message.chat.id, freefile, reply_to_message_id=message.id)
-                    remove(freefile)
-                    app.delete_messages(message.chat.id,[msg.id])
-                    return
-                except: pass
-            else: app.send_message(message.chat.id, "__Failed to Jump", reply_to_message_id=message.id)
-        else:    
-            try: temp = bypasser.shortners(ele)
-            except Exception as e: temp = "**Error**: " + str(e)
-        print("bypassed:",temp)
-        if temp != None: links = links + temp + "\n\n"
-    end = time()
-    took = "Took " + "{:.2f}".format(end-strt) + "sec"
-    print(took)
     
-    if otherss:
-        try:
-            app.send_photo(message.chat.id, message.photo.file_id, f'{links}**\n{took}**', reply_to_message_id=message.id)
-            app.delete_messages(message.chat.id,[msg.id])
-            return
-        except: pass
+    if len(urls) == 0:
+        return
 
-    try: 
-        final = []
-        tmp = ""
-        for ele in links.split("\n\n"):
-            tmp += ele + "\n\n"
-            if len(tmp) > 4000:
-                final.append(tmp)
-                tmp = ""
-        final.append(tmp)
-        app.delete_messages(message.chat.id, msg.id)
-        tmsgid = message.id
-        for ele in final:
-            tmsg = app.send_message(message.chat.id, f'{ele}**{took}**',reply_to_message_id=tmsgid, disable_web_page_preview=True)
-            tmsgid = tmsg.id
-    except Exception as e:
-        app.send_message(message.chat.id, f"__Failed to Bypass : {e}__", reply_to_message_id=message.id)
-        
+    for ele in urls:
+        if bypasser.ispresent(bypasser.ddl.ddllist, ele):
+            try: 
+                temp = bypasser.ddl.direct_link_generator(ele)
+            except Exception as e: 
+                temp = "**Error**: " + str(e)
+
+            if temp != None:
+                # Create a folder named 'uploads' if it doesn't exist
+                os.makedirs('uploads', exist_ok=True)
+                
+                # Download the video file using the download link
+                response = requests.get(temp)
+                
+                if response.status_code == 200:
+                    # Save the downloaded video file to the /uploads folder
+                    timestamp = int(time.time())
+                    filename = f'video_{timestamp}.mp4'
+                    with open(f'uploads/{filename}', 'wb') as f:
+                        f.write(response.content)
+                        print("Video downloaded and saved successfully!")
+    
 
 
 # start command
