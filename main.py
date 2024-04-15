@@ -12,6 +12,7 @@ import freewall
 from time import time
 import os
 import requests
+import re
 
 with open('config.json', 'r') as f: DATA = load(f)
 def getenv(var): return environ.get(var) or DATA.get(var, None)
@@ -29,9 +30,7 @@ def handleIndex(ele,message,msg):
     except: pass
     for page in result: app.send_message(message.chat.id, page, reply_to_message_id=message.id, disable_web_page_preview=True)
 
-
-# loop thread
-def loopthread(message,otherss=False):
+def loopthread(message, otherss=False):
     urls = []
     if otherss:
         texts = message.caption
@@ -56,21 +55,27 @@ def loopthread(message,otherss=False):
                 temp = "**Error**: " + str(e)
 
             if temp != None:
-                # Create a folder named 'uploads' if it doesn't exist
-                os.makedirs('uploads', exist_ok=True)
-                
-                # Download the video file using the download link
-                response = requests.get(temp)
-                
-                if response.status_code == 200:
-                    # Save the downloaded video file to the /uploads folder
-                    timestamp = int(time.time())
-                    filename = f'video_{timestamp}.mp4'
-                    with open(f'uploads/{filename}', 'wb') as f:
-                        f.write(response.content)
-                        print("Video downloaded and saved successfully!")
-    
+                match = re.search(r'\[(.*?)\]\((.*?)\)', temp)
+                if match:
+                    title = match.group(1)
+                    url = match.group(2)
 
+                    # Create a folder named 'uploads' if it doesn't exist
+                    os.makedirs('uploads', exist_ok=True)
+                    
+                    # Download the video file using the extracted URL
+                    response = requests.get(url)
+                    
+                    if response.status_code == 200:
+                        # Save the downloaded video file to the /uploads folder
+                        timestamp = int(time.time())
+                        filename = f'video_{timestamp}.mp4'
+                        with open(f'uploads/{filename}', 'wb') as f:
+                            f.write(response.content)
+                            print("Video downloaded and saved successfully!")
+
+                else:
+                    print("Invalid link format:", temp)
 
 # start command
 @app.on_message(filters.command(["start"]))
